@@ -2,9 +2,9 @@
 
 az login --output none 
 
-[int]$numusersstart = Read-Host -Prompt 'Enter the starting number for users to add: '
-[int]$numusers = Read-Host -Prompt 'Enter number of users to add between 1 and 7,000: '
-[string]$orgname = Read-Host -Prompt 'Enter the name of the ADO org to add users to: '
+[int]$numusersstart = Read-Host -Prompt 'Enter the starting number for users to add'
+[int]$numusers = Read-Host -Prompt 'Enter number of users to add between 1 and 7,000'
+[string]$orgname = Read-Host -Prompt 'Enter the name of the ADO org to add users to'
 
 $org="https://dev.azure.com/" + $orgname
 
