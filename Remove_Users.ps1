@@ -21,7 +21,7 @@ for([int]$i=0;$i -lt $numusers; $i++){
     $count = $i+1
 
     $pcomplete = ($i / $tcount) * 100
-    Write-Progress -Activity "Adding users to ADO org $orgname" -Status "Creating user $count of $numusers" -PercentComplete $pcomplete
+    Write-Progress -Activity "Removing users from ADO org $orgname" -Status "Creating user $count of $numusers" -PercentComplete $pcomplete
 
     az devops user remove --user $username --detect false --org $org --yes >>$outfilename
 
