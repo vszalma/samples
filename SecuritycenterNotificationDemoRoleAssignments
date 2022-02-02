@@ -1,0 +1,616 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "ForeachSubscripition": {
+                "actions": {
+                    "ForeachOwnerInArray": {
+                        "actions": {
+                            "Append_to_array_variable": {
+                                "inputs": {
+                                    "name": "ArrayOfOwners",
+                                    "value": "vszalma@microsoft.com"
+                                },
+                                "runAfter": {
+                                    "ForeachOwnerEmail": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "AppendToArrayVariable"
+                            },
+                            "ForeachOwnerEmail": {
+                                "actions": {},
+                                "foreach": "@body('GetSubscriptionOwners')?['resultsets']?['Table1']",
+                                "runAfter": {
+                                    "GetSubscriptionOwners": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Foreach"
+                            },
+                            "GetSubscriptionOwners": {
+                                "inputs": {
+                                    "body": {
+                                        "query": "@{concat('Select OwnerEmail from Users where OwnerGuid = ''', items('ForeachOwnerInArray'), '''')}"
+                                    },
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['sql']['connectionId']"
+                                        }
+                                    },
+                                    "method": "post",
+                                    "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent('default'))},@{encodeURIComponent(encodeURIComponent('default'))}/query/sql"
+                                },
+                                "runAfter": {},
+                                "type": "ApiConnection"
+                            }
+                        },
+                        "foreach": "@variables('ArrayOfAssingmentId')",
+                        "runAfter": {
+                            "ForeachRoleAssignment": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Foreach"
+                    },
+                    "ForeachRoleAssignment": {
+                        "actions": {
+                            "IfOwner": {
+                                "actions": {
+                                    "AddtoArray": {
+                                        "inputs": {
+                                            "name": "ArrayOfAssingmentId",
+                                            "value": "@items('ForeachRoleAssignment')?['properties']?['principalId']"
+                                        },
+                                        "runAfter": {},
+                                        "type": "AppendToArrayVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "contains": [
+                                                "@items('ForeachRoleAssignment')?['properties']?['roleDefinitionId']",
+                                                "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+                                            ]
+                                        },
+                                        {
+                                            "equals": [
+                                                "@items('ForeachRoleAssignment')?['properties']?['principalType']",
+                                                "User"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {},
+                                "type": "If"
+                            }
+                        },
+                        "foreach": "@body('GetSubscriptionRoleAssignments')?['value']",
+                        "runAfter": {
+                            "GetSubscriptionRoleAssignments": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Foreach"
+                    },
+                    "ForeachSQLTaskInArray": {
+                        "actions": {
+                            "AppendtoEmailBody": {
+                                "inputs": {
+                                    "name": "EmailBody",
+                                    "value": "@items('ForeachSQLTaskInArray')"
+                                },
+                                "runAfter": {},
+                                "type": "AppendToStringVariable"
+                            }
+                        },
+                        "foreach": "@variables('ArrayOfTasks')",
+                        "runAfter": {
+                            "ForeachTask": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Foreach"
+                    },
+                    "ForeachTask": {
+                        "actions": {
+                            "IfSql": {
+                                "actions": {
+                                    "AddToArrayOfTasks": {
+                                        "inputs": {
+                                            "name": "ArrayOfTasks",
+                                            "value": "@items('ForeachTask')"
+                                        },
+                                        "runAfter": {},
+                                        "type": "AppendToArrayVariable"
+                                    },
+                                    "AddToArrayTaskURL": {
+                                        "inputs": {
+                                            "name": "TaskURL",
+                                            "value": "@concat('<p><a href=''https://portal.azure.com/#blade/Microsoft_Azure_Security/RecommendationsBlade/assessmentKey/', items('ForeachTask')?['properties']?['securityTaskParameters']?['assessmentKey'], items('ForeachTask')?['properties']?['securityTaskParameters']?['resourceId'], '''>', items('ForeachTask')?['properties']?['securityTaskParameters']?['policyName'], '</a></p>')"
+                                        },
+                                        "runAfter": {
+                                            "AddToArrayOfTasks": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "AppendToStringVariable"
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@items('ForeachTask')?['properties']?['securityTaskParameters']?['resourceType']",
+                                                "SqlServer"
+                                            ]
+                                        },
+                                        {
+                                            "not": {
+                                                "equals": [
+                                                    "@items('ForeachTask')?['properties']?['securityTaskParameters']?['resourceType']",
+                                                    "null"
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                },
+                                "runAfter": {},
+                                "type": "If"
+                            }
+                        },
+                        "foreach": "@body('GETTasks')?['value']",
+                        "runAfter": {
+                            "GETTasks": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Foreach"
+                    },
+                    "GETTasks": {
+                        "inputs": {
+                            "authentication": {
+                                "type": "ManagedServiceIdentity"
+                            },
+                            "method": "GET",
+                            "queries": {
+                                "api-version": "2015-06-01-preview"
+                            },
+                            "uri": "@variables('TaskURI')"
+                        },
+                        "runAfter": {
+                            "SetTaskURI": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Http"
+                    },
+                    "GetSubscriptionRoleAssignments": {
+                        "inputs": {
+                            "authentication": {
+                                "type": "ManagedServiceIdentity"
+                            },
+                            "method": "GET",
+                            "queries": {
+                                "api-version": "2018-01-01-preview"
+                            },
+                            "uri": "@{concat('https://management.azure.com/subscriptions/',variables('SubscriptionId') ,'/providers/Microsoft.Authorization/roleAssignments')}"
+                        },
+                        "runAfter": {
+                            "ResetVariables": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Http"
+                    },
+                    "IfArrayOfOwnersNot0": {
+                        "actions": {
+                            "ForeachEmailRecipient": {
+                                "actions": {
+                                    "AppendtoEmailToLine": {
+                                        "inputs": {
+                                            "name": "EmailToLine",
+                                            "value": "@concat(items('ForeachEmailRecipient'), '; ')"
+                                        },
+                                        "runAfter": {},
+                                        "type": "AppendToStringVariable"
+                                    }
+                                },
+                                "foreach": "@variables('ArrayOfOwners')",
+                                "runAfter": {},
+                                "type": "Foreach"
+                            }
+                        },
+                        "expression": {
+                            "and": [
+                                {
+                                    "greater": [
+                                        "@length(variables('ArrayOfOwners'))",
+                                        0
+                                    ]
+                                }
+                            ]
+                        },
+                        "runAfter": {
+                            "ForeachOwnerInArray": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "If"
+                    },
+                    "ResetVariables": {
+                        "actions": {
+                            "ResetArrayOfAssignmentId": {
+                                "inputs": {
+                                    "name": "ArrayOfAssingmentId",
+                                    "value": "@null"
+                                },
+                                "runAfter": {
+                                    "ResetAssignmentId": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "ResetArrayOfOwners": {
+                                "inputs": {
+                                    "name": "ArrayOfOwners",
+                                    "value": "@null"
+                                },
+                                "runAfter": {
+                                    "ResetEmailToLine": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "ResetArrayOfTasks": {
+                                "inputs": {
+                                    "name": "ArrayOfTasks",
+                                    "value": "@null"
+                                },
+                                "runAfter": {
+                                    "ResetArrayOfOwners": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "ResetAssignmentId": {
+                                "inputs": {
+                                    "name": "AssignmentId",
+                                    "value": "@{null}"
+                                },
+                                "runAfter": {
+                                    "ResetTaskURL": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "ResetEmailBody": {
+                                "inputs": {
+                                    "name": "EmailBody",
+                                    "value": "@{null}"
+                                },
+                                "runAfter": {},
+                                "type": "SetVariable"
+                            },
+                            "ResetEmailToLine": {
+                                "inputs": {
+                                    "name": "EmailToLine",
+                                    "value": "@{null}"
+                                },
+                                "runAfter": {
+                                    "ResetEmailBody": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "ResetTaskURL": {
+                                "inputs": {
+                                    "name": "TaskURL",
+                                    "value": "@{null}"
+                                },
+                                "runAfter": {
+                                    "ResetArrayOfTasks": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            }
+                        },
+                        "runAfter": {
+                            "SetSubscriptionId": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Scope"
+                    },
+                    "SendEmailToOwners": {
+                        "inputs": {
+                            "body": {
+                                "Body": "<p>Hello,<br>\n<br>\nBelow is a list of tasks identified in a subscription you own: <strong></strong><strong>@{items('ForeachSubscripition')?['displayName']}</strong><strong></strong> (@{variables('SubscriptionId')}).<br>\n<br>\nVew <a href=\"https://ms.portal.azure.com/#blade/Microsoft_Azure_Security/SecurityMenuBlade/5\">Azure Defender for Cloud</a><br>\n<br>\nPlease review these it ems.<br>\n<br>\n@{variables('TaskURL')}</p>",
+                                "Subject": "Test Security Notificatoin Demo",
+                                "To": "@variables('EmailToLine')"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['office365']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/v2/Mail"
+                        },
+                        "runAfter": {
+                            "ForeachSQLTaskInArray": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "SetSubscriptionId": {
+                        "inputs": {
+                            "name": "SubscriptionId",
+                            "value": "@{items('ForeachSubscripition')?['subscriptionId']}"
+                        },
+                        "runAfter": {},
+                        "type": "SetVariable"
+                    },
+                    "SetTaskURI": {
+                        "inputs": {
+                            "name": "TaskURI",
+                            "value": "@{concat('https://management.azure.com/subscriptions/',variables('SubscriptionId'),'/providers/Microsoft.Security/tasks')}"
+                        },
+                        "runAfter": {
+                            "IfArrayOfOwnersNot0": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "SetVariable"
+                    }
+                },
+                "foreach": "@body('GETSubscriptions')?['value']",
+                "runAfter": {
+                    "GETSubscriptions": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Foreach"
+            },
+            "GETSubscriptions": {
+                "inputs": {
+                    "authentication": {
+                        "type": "ManagedServiceIdentity"
+                    },
+                    "method": "GET",
+                    "queries": {
+                        "api-version": "2020-01-01"
+                    },
+                    "uri": "https://management.azure.com/subscriptions"
+                },
+                "runAfter": {
+                    "Initialize_variable_3": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Http"
+            },
+            "InitArrayOfAssignmentId": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ArrayOfAssingmentId",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitAssignmentId": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "InitArrayOfOwners": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ArrayOfOwners",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitTaskURI": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "InitArrayOfTasks": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ArrayOfTasks",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitArrayOfOwners": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "InitAssignmentId": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "AssignmentId",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitTaskURL": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "InitEmailToLine": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "EmailToLine",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "InitSubscriptionId": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "SubscriptionId",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "InitializeVariable"
+            },
+            "InitTaskURI": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "TaskURI",
+                            "type": "string",
+                            "value": "https://management.azure.com/subscriptions/"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitSubscriptionId": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "InitTaskURL": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "TaskURL",
+                            "type": "string",
+                            "value": "<p><a href='http://website.com'>Web Site</a></p></body></html>"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitEmailToLine": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "EmailBody",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitArrayOfTasks": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_2": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "tempAssignmentId",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "InitArrayOfAssignmentId": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_3": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "tempPrincipalType",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_2": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "Recurrence": {
+                "evaluatedRecurrence": {
+                    "frequency": "Week",
+                    "interval": 1,
+                    "timeZone": "Eastern Standard Time"
+                },
+                "recurrence": {
+                    "frequency": "Week",
+                    "interval": 1,
+                    "timeZone": "Eastern Standard Time"
+                },
+                "type": "Recurrence"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "office365": {
+                    "connectionId": "/subscriptions/28cfa5ac-8f53-45e6-9735-43ecee9ad351/resourceGroups/rg-securitydemo/providers/Microsoft.Web/connections/office365",
+                    "connectionName": "office365",
+                    "id": "/subscriptions/28cfa5ac-8f53-45e6-9735-43ecee9ad351/providers/Microsoft.Web/locations/northcentralus/managedApis/office365"
+                },
+                "sql": {
+                    "connectionId": "/subscriptions/28cfa5ac-8f53-45e6-9735-43ecee9ad351/resourceGroups/rg-securitydemo/providers/Microsoft.Web/connections/sql-2",
+                    "connectionName": "sql-2",
+                    "id": "/subscriptions/28cfa5ac-8f53-45e6-9735-43ecee9ad351/providers/Microsoft.Web/locations/northcentralus/managedApis/sql"
+                }
+            }
+        }
+    }
+}
